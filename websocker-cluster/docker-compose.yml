@@ -1,0 +1,42 @@
+services:
+  ts-web:
+    image: tailscale/tailscale:latest
+    container_name: ts-web
+    hostname: websocket-server
+    environment:
+      - TS_AUTHKEY=tskey-auth-k9rHrXGbLZ11CNTRL-C3XyagYhf7SL3HJV1QzU8S4CpeTGFTRW9
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ./temp/tailscale-docker/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+
+  db:
+    image: postgis/postgis:14-3.3
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./tmp/db:/var/lib/postgresql/data
+      - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+    env_file:
+      - '.env'
+
+  web:
+    depends_on:
+      - db
+      - ts-web
+    build: .
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 80 -b '0.0.0.0'"
+    volumes:
+      - .:/myapp
+    env_file:
+      - '.env'
+    stdin_open: true
+    tty: true
+    network_mode: service:ts-web
+volumes:
+  db:
